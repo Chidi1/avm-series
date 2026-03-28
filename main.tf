@@ -26,29 +26,7 @@ module "vnet" {
 }
 
 ############################################
-# 2. AKS
-############################################
-module "aks" {
-  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
-
-  name                = "${var.prefix}-aks"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
-  dns_prefix          = "aks"
-
-  default_node_pool = {
-    name       = "system"
-    vm_size    = "Standard_DS2_v2"
-    node_count = 2
-  }
-
-  network_profile = {
-    network_plugin = "azure"
-  }
-}
-
-############################################
-# 3. VM
+# 2. VM
 ############################################
 module "vm" {
   source  = "Azure/avm-res-compute-virtualmachine/azurerm"
@@ -110,38 +88,6 @@ module "acr" {
   
   version = "~> 0.1"
 }
-
-module "aks_private" {
-  source = "Azure/avm-res-containerservice-managedcluster/azurerm"
-
-  name                    = "${var.prefix}-aks-private"
-  location                = var.location
-  resource_group_name     = azurerm_resource_group.rg.name
-  private_cluster_enabled = true
-  dns_prefix              = "akspriv"
-  
-  default_node_pool = {
-    name       = "default"
-    vm_size    = "Standard_D2s_v3"
-    node_count = 2
-  }
-  
-  identity = {
-    type = "SystemAssigned"
-  }
-  
-  network_profile = {
-    network_plugin = "azure"
-    network_policy = "azure"
-  }
-  
-  version = "~> 0.1"
-  
-  depends_on = [module.acr]
-}
-
-
-
 
 
 ############################################
