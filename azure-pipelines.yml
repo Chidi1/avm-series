@@ -4,10 +4,10 @@ trigger:
       - main
 
 variables:
-  - group: avm-series-variables   # <-- Reference your variable group here
+  - group: avm-series-variables  
   TF_VERSION: '1.6.6'
-  WORKING_DIR: 'infra/environments/$(environment)'
-  TENANT: 'tenantA'         # single tenant
+  WORKING_DIR: '$(Build.SourcesDirectory)'
+  TENANT: 'tenantA'         
 
 parameters:
   - name: environment
