@@ -73,6 +73,9 @@ module "sql_server" {
 
   administrator_login          = var.sql_admin
   administrator_login_password = var.sql_password
+  
+  # Add version tag for stability
+  version = "~> 0.1"
 }
 
 module "sql_db" {
@@ -80,11 +83,17 @@ module "sql_db" {
 
   name      = "${var.prefix}-db"
   server_id = module.sql_server.id
+  
+  version = "~> 0.1"
 }
 
 resource "azurerm_mssql_server_extended_auditing_policy" "audit" {
-  server_id = module.sql_server.id
-  enabled   = true
+  server_id                              = module.sql_server.id
+  enabled                                = true
+  storage_endpoint                       = module.storage_account.primary_blob_endpoint
+  storage_account_access_key             = module.storage_account.primary_access_key
+  
+  depends_on = [module.sql_server]
 }
 
 ############################################
@@ -98,6 +107,8 @@ module "appservice" {
   resource_group_name = azurerm_resource_group.rg.name
 
   https_only = true
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -111,6 +122,10 @@ module "redis" {
   resource_group_name = azurerm_resource_group.rg.name
 
   sku_name = "Premium"
+  family   = "P"
+  capacity = 1
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -119,11 +134,14 @@ module "redis" {
 module "acr" {
   source = "Azure/avm-res-containerregistry-registry/azurerm"
 
-  name                = "${var.prefix}acr"
+  name                = replace("${var.prefix}acr", "-", "")
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
 
   sku = "Premium"
+  admin_enabled = true
+  
+  version = "~> 0.1"
 }
 
 module "aks_private" {
@@ -134,6 +152,25 @@ module "aks_private" {
   resource_group_name     = azurerm_resource_group.rg.name
   private_cluster_enabled = true
   dns_prefix              = "akspriv"
+  
+  default_node_pool = {
+    name       = "default"
+    vm_size    = "Standard_D2s_v3"
+    node_count = 2
+  }
+  
+  identity = {
+    type = "SystemAssigned"
+  }
+  
+  network_profile = {
+    network_plugin = "azure"
+    network_policy = "azure"
+  }
+  
+  version = "~> 0.1"
+  
+  depends_on = [module.acr]
 }
 
 ############################################
@@ -144,6 +181,11 @@ module "hubspoke" {
 
   hub_vnet_cidr   = "10.10.0.0/16"
   spoke_vnet_cidr = "10.20.0.0/16"
+  
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = var.location
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -154,6 +196,9 @@ module "policy" {
 
   policy_definition_id = var.policy_definition_id
   scope                = var.subscription_id
+  name                 = "${var.prefix}-policy-assignment"
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -166,6 +211,28 @@ module "agents" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = var.location
   instances           = 2
+  
+  sku = {
+    name     = "Standard_D2s_v3"
+    tier     = "Standard"
+    capacity = 2
+  }
+  
+  source_image_reference = {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts"
+    version   = "latest"
+  }
+  
+  admin_username = "azureuser"
+  
+  admin_ssh_key = [{
+    username   = "azureuser"
+    public_key = file("~/.ssh/id_rsa.pub")
+  }]
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -174,7 +241,23 @@ module "agents" {
 module "monitor" {
   source = "Azure/avm-res-insights-diagnosticsetting/azurerm"
 
-  target_resource_id = module.vm.id
+  target_resource_id         = module.vm.id
+  name                       = "${var.prefix}-diag-setting"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
+  
+  enabled_log = [
+    {
+      category = "Audit"
+    }
+  ]
+  
+  metric = [
+    {
+      category = "AllMetrics"
+    }
+  ]
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -186,6 +269,11 @@ module "function" {
   name                = "${var.prefix}-func"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
+  
+  runtime_stack = "dotnet"
+  runtime_version = "6.0"
+  
+  version = "~> 0.1"
 }
 
 resource "azurerm_private_endpoint" "func_pe" {
@@ -193,6 +281,15 @@ resource "azurerm_private_endpoint" "func_pe" {
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
   subnet_id           = module.vnet.subnets["app"].id
+  
+  private_service_connection {
+    name                           = "${var.prefix}-func-psc"
+    private_connection_resource_id = module.function.id
+    is_manual_connection           = false
+    subresource_names              = ["sites"]
+  }
+  
+  depends_on = [module.function]
 }
 
 ############################################
@@ -202,6 +299,12 @@ module "landingzone" {
   source = "Azure/avm-ptn-landingzone/azurerm"
 
   environment = var.environment
+  location    = var.location
+  
+  # Add common landing zone configuration
+  subscription_id = var.subscription_id
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -213,6 +316,11 @@ module "avd" {
   name                = "${var.prefix}-avd"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
+  
+  type                = "Pooled"
+  load_balancer_type  = "BreadthFirst"
+  
+  version = "~> 0.1"
 }
 
 ############################################
@@ -223,4 +331,36 @@ module "privatedns" {
 
   name                = "privatelink.database.windows.net"
   resource_group_name = azurerm_resource_group.rg.name
+  
+  # Add virtual network links
+  virtual_network_links = {
+    link1 = {
+      vnet_id = module.hubspoke.hub_vnet_id
+    }
+  }
+  
+  version = "~> 0.1"
+}
+
+# Additional resource for storage account needed for SQL auditing
+module "storage_account" {
+  source = "Azure/avm-res-storage-storageaccount/azurerm"
+  
+  name                = replace("${var.prefix}stgaudit", "-", "")
+  location            = var.location
+  resource_group_name = azurerm_resource_group.rg.name
+  
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  
+  version = "~> 0.1"
+}
+
+# Log Analytics Workspace for monitoring
+resource "azurerm_log_analytics_workspace" "law" {
+  name                = "${var.prefix}-law"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
 }

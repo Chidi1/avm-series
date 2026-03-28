@@ -28,7 +28,7 @@ stages:
 # ------------------------
 - stage: Plan
   jobs:
-    - job: TerraformPlan
+    - job: TerraformInitandPlan
       pool:
         name: 'mvp-agent' 
           
