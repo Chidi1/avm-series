@@ -4,10 +4,13 @@ trigger:
       - main
 
 variables:
-  - group: avm-series-variables  
-  TF_VERSION: '1.6.6'
-  WORKING_DIR: '$(Build.SourcesDirectory)'
-  TENANT: 'tenantA'         
+  - group: avm-series-variables
+  - name: TF_VERSION
+    value: '1.6.6'
+  - name: WORKING_DIR
+    value: '$(Build.SourcesDirectory)'
+  - name: TENANT
+    value: 'tenantA'
 
 parameters:
   - name: environment
@@ -40,6 +43,8 @@ stages:
             scriptType: bash
             scriptLocation: inlineScript
             inlineScript: |
+              cd "$(WORKING_DIR)"
+
               terraform init \
                 -backend-config="resource_group_name=$(TF_STATE_RG)" \
                 -backend-config="storage_account_name=$(TF_STATE_SA)" \
@@ -78,6 +83,8 @@ stages:
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
+                    cd "$(WORKING_DIR)"
+
                     terraform init \
                       -backend-config="resource_group_name=$(TF_STATE_RG)" \
                       -backend-config="storage_account_name=$(TF_STATE_SA)" \
