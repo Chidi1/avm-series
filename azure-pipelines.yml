@@ -49,7 +49,7 @@ stages:
                 -backend-config="resource_group_name=$(TF_STATE_RG)" \
                 -backend-config="storage_account_name=$(TF_STATE_SA)" \
                 -backend-config="container_name=tfstate" \
-                -backend-config="key=$(environment).tfstate"
+                -backend-config="key=${{ parameters.environment }}.tfstate"  # Also fix this line
 
               terraform plan -out=tfplan
           env:
@@ -69,7 +69,7 @@ stages:
   condition: succeeded()
   jobs:
     - deployment: ApplyTerraform
-      environment: $(environment)
+      environment: ${{ parameters.environment }}  
       strategy:
         runOnce:
           deploy:
@@ -89,7 +89,7 @@ stages:
                       -backend-config="resource_group_name=$(TF_STATE_RG)" \
                       -backend-config="storage_account_name=$(TF_STATE_SA)" \
                       -backend-config="container_name=tfstate" \
-                      -backend-config="key=$(environment).tfstate"
+                      -backend-config="key=${{ parameters.environment }}.tfstate"  
 
                     terraform apply -auto-approve tfplan
                 env:
