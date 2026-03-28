@@ -40,22 +40,6 @@ module "vm" {
 }
 
 
-
-############################################
-# 3. APP SERVICE
-############################################
-module "appservice" {
-  source = "Azure/avm-res-web-site/azurerm"
-
-  name                = "${var.prefix}-app"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  https_only = true
-  
-  version = "~> 0.1"
-}
-
 ############################################
 # 4. REDIS
 ############################################
